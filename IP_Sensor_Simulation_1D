@@ -1,0 +1,99 @@
+clc; clear; close all;
+
+% Parâmetros físicos
+M = 0.3;          % Massa da bolinha (kg)
+g = 9.81;         % Gravidade (m/s²)
+dt = 0.1;         % Passo de tempo (s)
+Tmax = 15;        % Tempo máximo de simulação
+c = 343;          % Velocidade do som (m/s)
+
+% Calha de 1 metro, sensor no centro
+comprimento_calha = 1;  % em metros
+pos_sensor = 0;         % Sensor no centro (x = 0)
+
+% Ganhos PID
+Kp = 5;
+Ki = 3;
+Kd = 1;
+
+% Estado inicial da bolinha
+x = 0.25;       % 25 cm à direita do centro
+vx = 0;
+ax = 0;
+
+% Posição desejada é o centro
+x_ref = 0;
+
+% Controle PID
+erro_x_anterior = x_ref - x;
+integral_x = 0;
+
+% Vetores para plotagem
+T = 0:dt:Tmax;
+pos_x = zeros(size(T));
+pos_x_medida = zeros(size(T));
+
+% Animação
+figure(1);
+axis([-0.5 0.5 -0.1 0.1]); % Eixo Y apenas visual
+grid on; hold on;
+ball = plot(x, 0, 'ro', 'MarkerSize', 10, 'MarkerFaceColor', 'r');
+xlabel('X (m)');
+title('Movimento da bolinha com sensor HC-SR04');
+
+fprintf('Tempo (s)   X_real (m)   X_medido (m)   Theta_x (°)\n');
+fprintf('--------------------------------------------------\n');
+
+for i = 1:length(T)
+    %% Simulação da leitura do sensor HC-SR04
+    distancia_real = abs(x - pos_sensor);        % distância da bolinha ao sensor
+    tempo_echo = 2 * distancia_real / c;          % tempo de ida e volta
+    ruido = 0 + 0.005 * randn;                   % ruído com desvio de ~5 mm
+    distancia_mensurada = distancia_real + ruido;
+
+    % Estimativa da posição baseada no lado atual da bolinha
+    if x >= 0
+        x_medido = distancia_mensurada;  % à direita
+    else
+        x_medido = -distancia_mensurada; % à esquerda
+    end
+
+    %% Controle PID
+    erro_x = x_ref - x_medido;
+    integral_x = integral_x + erro_x * dt;
+    derivativo_x = (erro_x - erro_x_anterior) / dt;
+
+    theta_x = (Kp * erro_x + Ki * integral_x + Kd * derivativo_x);
+    theta_x_deg = rad2deg(theta_x);
+
+    %% Dinâmica da bolinha
+    ax = -g * sin(theta_x);
+
+    [~, V] = ode45(@(t, v) ax, [0 dt], vx);
+    vx = V(end);
+
+    [~, P] = ode45(@(t, p) vx, [0 dt], x);
+    x = P(end);
+
+    % Armazenar dados
+    pos_x(i) = x;
+    pos_x_medida(i) = x_medido;
+    erro_x_anterior = erro_x;
+
+    % Atualizar animação
+    set(ball, 'XData', x);
+    pause(0.01);
+
+    % Exibir no console
+    fprintf('%.2f        %.5f     %.5f     %.2f°\n', T(i), x, x_medido, theta_x_deg);
+end
+
+%% Gráficos
+figure(2);
+plot(T, pos_x, 'b-', 'LineWidth', 1.5); hold on;
+plot(T, pos_x_medida, 'r--', 'LineWidth', 1);
+yline(0, 'k--', 'Referência');
+legend('Posição Real', 'Posição Medida (Sensor)', 'Referência');
+xlabel('Tempo (s)'); ylabel('Posição X (m)');
+title('Resposta do Sistema com Sensor Simulado');
+grid on;
