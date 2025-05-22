@@ -1,0 +1,84 @@
+clc; clear; close all;
+
+% Parâmetros do sistema
+M = 0.3;          % Massa da bolinha (kg)
+g = 9.81;         % Gravidade (m/s²)
+dt = 0.2;         % Passo de tempo (s)
+Tmax = 15;        % Tempo máximo da simulação
+
+% Ganhos PID
+Kp = 0.8;
+Ki = 0.5;
+Kd = 0.2;
+
+% Condições iniciais
+x = 0.5;          % Posição inicial
+vx = 0;           % Velocidade inicial
+ax = 0;           % Aceleração inicial
+
+% Posição final desejada
+x_ref = input('Digite a posição desejada em X: ');
+
+% Inicialização do controle PID
+erro_x_anterior = x_ref - x;
+integral_x = 0;
+
+% Vetores para plotagem
+T = 0:dt:Tmax;
+pos_x = zeros(size(T));
+
+% Animação
+figure(1);
+axis([-0.5 0.5 -0.1 0.1]); % Eixo Y apenas para visualização
+grid on; hold on;
+ball = plot(x, 0, 'ro', 'MarkerSize', 10, 'MarkerFaceColor', 'r');
+xlabel('X (m)');
+title('Movimento da bolinha no eixo X');
+
+fprintf('Tempo (s)   X (m)    Theta_x (°)\n');
+fprintf('-------------------------------\n');
+
+for i = 1:length(T)
+    % Erro
+    erro_x = x_ref - x;
+
+    % PID
+    integral_x = integral_x + erro_x * dt;
+    derivativo_x = (erro_x - erro_x_anterior) / dt;
+
+    theta_x = -(Kp * erro_x + Ki * integral_x + Kd * derivativo_x);
+    theta_x_deg = rad2deg(theta_x);
+
+    % Dinâmica
+    ax = -g * sin(theta_x);
+
+    % Integração Runge-Kutta
+    [~, V] = ode45(@(t, v) ax, [0 dt], vx);
+    vx = V(end);
+
+    [~, P] = ode45(@(t, p) vx, [0 dt], x);
+    x = P(end);
+
+    % Armazenar posição
+    pos_x(i) = x;
+
+    % Atualizar erro anterior
+    erro_x_anterior = erro_x;
+
+    % Atualizar animação
+    set(ball, 'XData', x);
+    pause(0.01);
+
+    % Console
+    fprintf('%.2f        %.5f   %.2f°\n', T(i), x, theta_x_deg);
+end
+
+% Gráfico da posição X
+figure(2);
+plot(T, pos_x, 'r', 'LineWidth', 1.5); hold on;
+plot([T(1) T(end)], [x_ref x_ref], 'k--');
+xlabel('Tempo (s)');
+ylabel('Posição X (m)');
+title('Convergência da bolinha para a posição desejada');
+legend('Posição X', 'Referência');
+grid on;
