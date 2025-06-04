@@ -1,0 +1,100 @@
+#include <Servo.h>
+
+Servo servos[8];
+int servoPins[8] = {2, 3, 4, 5, 6, 7, 8, 9};
+
+// Estrutura com pares (tp, tm)
+struct ParAngulos {
+  float tp;
+  float tm;
+};
+
+// Dados reais
+ParAngulos dados[] = {
+ { 5, -12 },
+  { 5, -7.22 },
+  { 2.42, -4.46 },
+  { 0.63, -1.15 },
+  { -1.21, 2.21 },
+  { -2.79, 5.14 },
+  { -3.89, 7.20 },
+  { -4.36, 8.08 },
+  { -4.14, 7.67 },
+  { -3.30, 6.09 },
+  {-5, 12},
+  { -5, 7.22 },
+  { 5, 7.22 },
+  { 3, -5},
+  {0, 0}
+
+
+};
+
+int totalPassos = sizeof(dados) / sizeof(dados[0]);
+const int subpassosPorPar = 5;
+const int intervalo = 10;
+const int subpassosInicial = 30;
+
+void moverServosComAngulos(float tp, float tm) {
+  int angles[8];
+  angles[0] = 98 + tm;
+  angles[1] = 8 + tm;
+  angles[2] = 98 + tm + tp;
+  angles[3] = 58 + tm + tp;
+  angles[4] = 68 + tp + tm;
+  angles[5] = 78 + tp + tm;
+  angles[6] = 78 + tm;
+  angles[7] = 78 + tm;
+
+  for (int k = 0; k < 8; k++) {
+    servos[k].write(angles[k]);
+  }
+
+  Serial.print("tp = ");
+  Serial.print(tp);
+  Serial.print("°, tm = ");
+  Serial.println(tm);
+}
+
+void setup() {
+  Serial.begin(9600);
+  for (int i = 0; i < 8; i++) {
+    servos[i].attach(servoPins[i]);
+  }
+
+  // Inicializa na posição neutra
+  moverServosComAngulos(0, 0);
+
+  Serial.println("Aguardando 10 segundos...");
+  delay(10000);
+
+  // Transição suave até o primeiro par
+  float tp1 = dados[0].tp;
+  float tm1 = dados[0].tm;
+  for (int j = 0; j <= subpassosInicial; j++) {
+    float alpha = j / float(subpassosInicial);
+    float tp = alpha * tp1;
+    float tm = alpha * tm1;
+    moverServosComAngulos(tp, tm);
+    delay(intervalo);
+  }
+}
+
+void loop() {
+  for (int i = 0; i < totalPassos - 1; i++) {
+    float tp0 = dados[i].tp;
+    float tm0 = dados[i].tm;
+    float tp1 = dados[i + 1].tp;
+    float tm1 = dados[i + 1].tm;
+
+    for (int j = 0; j < subpassosPorPar; j++) {
+      float alpha = j / float(subpassosPorPar);
+      float tp = (1 - alpha) * tp0 + alpha * tp1;
+      float tm = (1 - alpha) * tm0 + alpha * tm1;
+      moverServosComAngulos(tp, tm);
+      delay(intervalo);
+    }
+  }
+
+  while (true) {}
+}
